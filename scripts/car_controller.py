@@ -10,8 +10,9 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Twist, Pose, PoseStamped, Quaternion
+from geometry_msgs.msg import Twist, Pose, PoseStamped, Quaternion, TransformStamped
 from sensor_msgs.msg import Imu
+from tf2_ros import TransformBroadcaster
 import math
 import json
 import serial
@@ -85,6 +86,8 @@ class CarController(Node):
         self.target_pose = Pose2D()
         self.current_velocity = Twist()
         self.target_goal: Optional[Goal] = None
+        self.odom_frame_id = 'odom'
+        self.base_frame_id = 'base_link'
         
         self.base_speed = 50
         self.acceleration_time = 3
@@ -102,6 +105,8 @@ class CarController(Node):
                 ('min_angular_velocity', 0.1),
                 ('max_angular_velocity', 2.0),
                 ('base_angular_velocity', 0.5),
+                ('odom_frame_id', 'odom'),
+                ('base_frame_id', 'base_link'),
             ]
         )
         
@@ -112,6 +117,8 @@ class CarController(Node):
         self.control_frequency = self.get_parameter('control_frequency').value
         self.goal_tolerance_xy = self.get_parameter('goal_tolerance_xy').value
         self.goal_tolerance_theta = self.get_parameter('goal_tolerance_theta').value
+        self.odom_frame_id = self.get_parameter('odom_frame_id').value
+        self.base_frame_id = self.get_parameter('base_frame_id').value
         
         qos_profile = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -145,6 +152,7 @@ class CarController(Node):
             '/cmd_vel_out',
             qos_profile
         )
+        self.tf_broadcaster = TransformBroadcaster(self)
         
         self.init_serial_connection()
         
@@ -196,6 +204,7 @@ class CarController(Node):
             )
             
             self.current_velocity = msg.twist.twist
+            self.publish_odom_transform(msg)
             
             self.get_logger().debug(
                 f'位置: ({self.current_pose.x:.3f}, {self.current_pose.y:.3f}), '
@@ -203,6 +212,18 @@ class CarController(Node):
             )
         except Exception as e:
             self.get_logger().error(f'里程计数据解析错误: {e}')
+
+    def publish_odom_transform(self, msg: Odometry):
+        """根据里程计消息发布 odom -> base_link 的TF变换"""
+        transform = TransformStamped()
+        transform.header.stamp = msg.header.stamp
+        transform.header.frame_id = msg.header.frame_id or self.odom_frame_id
+        transform.child_frame_id = msg.child_frame_id or self.base_frame_id
+        transform.transform.translation.x = msg.pose.pose.position.x
+        transform.transform.translation.y = msg.pose.pose.position.y
+        transform.transform.translation.z = msg.pose.pose.position.z
+        transform.transform.rotation = msg.pose.pose.orientation
+        self.tf_broadcaster.sendTransform(transform)
     
     def cmd_vel_callback(self, msg: Twist):
         """
