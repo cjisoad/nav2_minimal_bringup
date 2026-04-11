@@ -4,6 +4,12 @@ project(mobile_robot_nav_bringup)
 find_package(ament_cmake REQUIRED)
 
 install(
+  PROGRAMS
+    scripts/keyboard_cmd_vel_test.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(
   DIRECTORY launch config maps
   DESTINATION share/${PROJECT_NAME}
 )
