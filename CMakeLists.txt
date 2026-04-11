@@ -5,6 +5,7 @@ find_package(ament_cmake REQUIRED)
 
 install(
   PROGRAMS
+    scripts/car_controller.py
     scripts/keyboard_cmd_vel_test.py
   DESTINATION lib/${PROJECT_NAME}
 )
