@@ -10,9 +10,9 @@ from launch_ros.actions import Node
 def _default_maps_dir():
     pkg_share = Path(get_package_share_directory('mobile_robot_nav_bringup'))
     workspace_root = pkg_share.parents[3]
-    source_maps_dir = workspace_root / 'src' / 'mobile_robot_nav_bringup' / 'maps'
-    if source_maps_dir.is_dir():
-        return str(source_maps_dir)
+    repo_maps_dir = workspace_root / 'maps'
+    if repo_maps_dir.is_dir():
+        return str(repo_maps_dir)
     return str(pkg_share / 'maps')
 
 
