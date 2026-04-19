@@ -36,6 +36,19 @@ def generate_launch_description():
         output='screen',
     )
 
+    # ENU: right turn around +Z is negative yaw.
+    laser_static_tf = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='base_to_laser_tf',
+        output='screen',
+        arguments=[
+            '0.395', '0.0', '0.0',
+            '-0.78539816339', '0.0', '0.0',
+            'base_link', 'laser_link',
+        ],
+    )
+
     return LaunchDescription([
         DeclareLaunchArgument(
             'use_sim_time',
@@ -59,4 +72,5 @@ def generate_launch_description():
         ),
         slam_node,
         rviz_node,
+        laser_static_tf,
     ])
