@@ -1,6 +1,8 @@
 # mobile_robot_nav_bringup
 
-最小 Nav2 导航功能包，面向 Ubuntu 22.04 + ROS 2 Humble，并复用系统通过 apt 安装的 `nav2_bringup`。
+最小 Nav2 导航功能包，面向 Ubuntu 24.04 + ROS 2 Jazzy，并复用系统通过 apt 安装的 `nav2_bringup`。
+
+当前 `jazzy` 分支面向树莓派 5 实机部署，参数和默认启动策略已经按 Raspberry Pi 5 的算力与内存条件做过性能优化。
 
 ## 包内容
 
@@ -13,7 +15,7 @@
 
 ## 前提
 
-- 安装NAV2 `sudo apt install ros-humble-nav2-bringup ros-humble-navigation2`
+- 安装NAV2 `sudo apt install ros-jazzy-nav2-bringup ros-jazzy-navigation2`
 - 存在2D雷达扫描，并以 `/scan`发布雷达信息
 - 存在里程计，并以 `odom`话题发布里程计信息
 - 存在以下TF变换：`map`、`odom`、`base_link`
@@ -36,6 +38,19 @@ source install/setup.bash
 ros2 launch mobile_robot_nav_bringup navigation.launch.py
 ```
 
+当前默认值已经按树莓派 5 做了降载与性能优化，默认启用 Nav2 composition，且默认不再启动 RViz。
+如果你确实要在本机打开 RViz 调试，需要显式传：
+
+```bash
+ros2 launch mobile_robot_nav_bringup navigation.launch.py use_rviz:=true
+```
+
+如果你为了排查单个 Nav2 进程的问题，想暂时关闭 composition，也可以显式传：
+
+```bash
+ros2 launch mobile_robot_nav_bringup navigation.launch.py use_composition:=False
+```
+
 显式传入自己的静态地图：
 
 ```bash
@@ -45,10 +60,10 @@ ros2 launch mobile_robot_nav_bringup navigation.launch.py \
 
 如果你想把自己的地图直接放到包内，并且以后启动时不再手动传 `map:=...`，可以这样做：
 
-1. 把地图文件放到 `src/mobile_robot_nav_bringup/maps/`，例如：
-   - `src/mobile_robot_nav_bringup/maps/my_lab.yaml`
-   - `src/mobile_robot_nav_bringup/maps/my_lab.pgm`
-2. 修改 [`navigation.launch.py`](/home/eden/mobile_robot_nav/src/mobile_robot_nav_bringup/launch/navigation.launch.py#L66) 里 `map` 参数的默认值，把：
+1. 把地图文件放到 `src/nav2_minimal_bringup/maps/`，例如：
+   - `src/nav2_minimal_bringup/maps/my_lab.yaml`
+   - `src/nav2_minimal_bringup/maps/my_lab.pgm`
+2. 修改 [`navigation.launch.py`](/home/boreas/robot_nav/src/nav2_minimal_bringup/launch/navigation.launch.py#L66) 里 `map` 参数的默认值，把：
 
 ```python
 default_value=os.path.join(pkg_share, 'maps', 'map.yaml')
@@ -63,8 +78,8 @@ default_value=os.path.join(pkg_share, 'maps', 'my_lab.yaml')
 3. 重新编译并（不要漏！！！） source：
 
 ```bash
-cd /home/eden/mobile_robot_nav
-source /opt/ros/humble/setup.bash
+cd /home/boreas/robot_nav
+source /opt/ros/jazzy/setup.bash
 colcon build --packages-select mobile_robot_nav_bringup --symlink-install
 source install/setup.bash
 ```
@@ -82,7 +97,7 @@ ros2 launch mobile_robot_nav_bringup navigation.launch.py
 终端 1，启动 Gazebo 仿真：
 
 ```bash
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 export TURTLEBOT3_MODEL=waffle
 ros2 launch turtlebot3_gazebo turtlebot3_world.launch.py
 ```
@@ -90,13 +105,13 @@ ros2 launch turtlebot3_gazebo turtlebot3_world.launch.py
 终端 2，启动本包的 Nav2：
 
 ```bash
-source /opt/ros/humble/setup.bash
-cd /home/eden/mobile_robot_nav
+source /opt/ros/jazzy/setup.bash
+cd /home/boreas/robot_nav
 source install/setup.bash
 
 ros2 launch mobile_robot_nav_bringup navigation.launch.py \
   use_sim_time:=true \
-  map:=/opt/ros/humble/share/nav2_bringup/maps/turtlebot3_world.yaml
+  map:=/opt/ros/jazzy/share/nav2_bringup/maps/turtlebot3_world.yaml
 ```
 
 仿真中验证流程：
@@ -112,18 +127,18 @@ ros2 launch mobile_robot_nav_bringup navigation.launch.py \
 
 建图启动文件：
 
-- [`slam.launch.py`](/home/eden/mobile_robot_nav/src/mobile_robot_nav_bringup/launch/slam.launch.py)
-- [`slam_params.yaml`](/home/eden/mobile_robot_nav/src/mobile_robot_nav_bringup/config/slam_params.yaml)
+- [`slam.launch.py`](/home/boreas/robot_nav/src/nav2_minimal_bringup/launch/slam.launch.py)
+- [`slam_params.yaml`](/home/boreas/robot_nav/src/nav2_minimal_bringup/config/slam_params.yaml)
 
 保存地图启动文件：
 
-- [`save_map.launch.py`](/home/eden/mobile_robot_nav/src/mobile_robot_nav_bringup/launch/save_map.launch.py)
+- [`save_map.launch.py`](/home/boreas/robot_nav/src/nav2_minimal_bringup/launch/save_map.launch.py)
 
 真机建图命令：
 
 ```bash
-source /opt/ros/humble/setup.bash
-cd /home/eden/mobile_robot_nav
+source /opt/ros/jazzy/setup.bash
+cd /home/boreas/robot_nav
 source install/setup.bash
 
 ros2 launch mobile_robot_nav_bringup slam.launch.py
@@ -132,8 +147,8 @@ ros2 launch mobile_robot_nav_bringup slam.launch.py
 仿真建图命令：
 
 ```bash
-source /opt/ros/humble/setup.bash
-cd /home/eden/mobile_robot_nav
+source /opt/ros/jazzy/setup.bash
+cd /home/boreas/robot_nav
 source install/setup.bash
 
 ros2 launch mobile_robot_nav_bringup slam.launch.py use_sim_time:=true
@@ -149,8 +164,8 @@ ros2 launch mobile_robot_nav_bringup slam.launch.py use_sim_time:=true
 扫图完成后，保存地图到本包的 `maps/` 目录：
 
 ```bash
-source /opt/ros/humble/setup.bash
-cd /home/eden/mobile_robot_nav
+source /opt/ros/jazzy/setup.bash
+cd /home/boreas/robot_nav
 source install/setup.bash
 
 ros2 launch mobile_robot_nav_bringup save_map.launch.py map_name:=my_map
@@ -159,7 +174,7 @@ ros2 launch mobile_robot_nav_bringup save_map.launch.py map_name:=my_map
 默认会优先保存到当前工作空间源码目录（注意！保存地图并更改launch文件后要编译）：
 
 ```bash
-/home/eden/mobile_robot_nav/src/mobile_robot_nav_bringup/maps/
+/home/boreas/robot_nav/src/nav2_minimal_bringup/maps/
 ```
 
 生成的文件通常是：
@@ -171,7 +186,7 @@ ros2 launch mobile_robot_nav_bringup save_map.launch.py map_name:=my_map
 
 ```bash
 ros2 launch mobile_robot_nav_bringup save_map.launch.py \
-  save_dir:=/home/eden/mobile_robot_nav/src/mobile_robot_nav_bringup/maps \
+  save_dir:=/home/boreas/robot_nav/src/nav2_minimal_bringup/maps \
   map_name:=my_map
 ```
 

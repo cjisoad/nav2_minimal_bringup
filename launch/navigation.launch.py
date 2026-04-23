@@ -7,6 +7,19 @@ from ament_index_python.packages import get_package_share_directory
 from launch_ros.actions import Node
 
 import os
+from pathlib import Path
+
+
+NAV2_CONTAINER_NAME = 'nav2_container'
+
+
+def _default_map_yaml(pkg_share: str) -> str:
+    pkg_share_path = Path(pkg_share)
+    workspace_root = pkg_share_path.parents[3]
+    workspace_map = workspace_root / 'maps' / 'my_map.yaml'
+    if workspace_map.is_file():
+        return str(workspace_map)
+    return str(pkg_share_path / 'maps' / 'my_map.yaml')
 
 
 def generate_launch_description():
@@ -17,6 +30,8 @@ def generate_launch_description():
     params_file = LaunchConfiguration('params_file')
     use_sim_time = LaunchConfiguration('use_sim_time')
     autostart = LaunchConfiguration('autostart')
+    navigation_autostart = LaunchConfiguration('navigation_autostart')
+    startup_navigation_on_initial_pose = LaunchConfiguration('startup_navigation_on_initial_pose')
     use_composition = LaunchConfiguration('use_composition')
     use_respawn = LaunchConfiguration('use_respawn')
     use_rviz = LaunchConfiguration('use_rviz')
@@ -34,6 +49,7 @@ def generate_launch_description():
             'params_file': params_file,
             'use_composition': use_composition,
             'use_respawn': use_respawn,
+            'container_name': NAV2_CONTAINER_NAME,
             'log_level': log_level,
         }.items(),
     )
@@ -44,12 +60,27 @@ def generate_launch_description():
         ),
         launch_arguments={
             'use_sim_time': use_sim_time,
-            'autostart': autostart,
+            'autostart': navigation_autostart,
             'params_file': params_file,
             'use_composition': use_composition,
             'use_respawn': use_respawn,
+            'container_name': NAV2_CONTAINER_NAME,
             'log_level': log_level,
         }.items(),
+    )
+
+    nav2_container = Node(
+        condition=IfCondition(use_composition),
+        package='rclcpp_components',
+        executable='component_container_isolated',
+        name=NAV2_CONTAINER_NAME,
+        output='screen',
+        parameters=[{'autostart': autostart, 'use_sim_time': use_sim_time}],
+        arguments=['--ros-args', '--log-level', log_level],
+        remappings=[
+            ('/tf', 'tf'),
+            ('/tf_static', 'tf_static'),
+        ],
     )
 
     rviz_launch = IncludeLaunchDescription(
@@ -63,6 +94,14 @@ def generate_launch_description():
         condition=IfCondition(use_rviz),
     )
 
+    nav_startup_helper = Node(
+        package='mobile_robot_nav_bringup',
+        executable='initial_pose_nav_startup.py',
+        name='initial_pose_nav_startup',
+        output='screen',
+        condition=IfCondition(startup_navigation_on_initial_pose),
+    )
+
     # ENU: right turn around +Z is negative yaw.
     laser_static_tf = Node(
         package='tf2_ros',
@@ -70,16 +109,21 @@ def generate_launch_description():
         name='base_to_laser_tf',
         output='screen',
         arguments=[
-            '0.395', '0.0', '0.0',
-            '-0.78539816339', '0.0', '0.0',
-            'base_link', 'laser_link',
+            '--x', '0.295',
+            '--y', '0.0',
+            '--z', '0.0',
+            '--roll', '0.0',
+            '--pitch', '0.0',
+            '--yaw', '-0.78539816339',
+            '--frame-id', 'base_link',
+            '--child-frame-id', 'laser_link',
         ],
     )
 
     return LaunchDescription([
         DeclareLaunchArgument(
             'map',
-            default_value=os.path.join(pkg_share, 'maps', 'generated_map.yaml'),
+            default_value=_default_map_yaml(pkg_share),
             description='Full path to the map YAML file.',
         ),
         DeclareLaunchArgument(
@@ -95,12 +139,22 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'autostart',
             default_value='true',
-            description='Automatically transition Nav2 lifecycle nodes.',
+            description='Automatically transition localization lifecycle nodes.',
+        ),
+        DeclareLaunchArgument(
+            'navigation_autostart',
+            default_value='false',
+            description='Automatically transition navigation lifecycle nodes.',
+        ),
+        DeclareLaunchArgument(
+            'startup_navigation_on_initial_pose',
+            default_value='true',
+            description='Start navigation lifecycle after an initial pose is received.',
         ),
         DeclareLaunchArgument(
             'use_composition',
-            default_value='False',
-            description='Keep false for a simpler minimal bringup.',
+            default_value='True',
+            description='Compose Nav2 nodes into a single container to reduce SBC CPU and memory overhead.',
         ),
         DeclareLaunchArgument(
             'use_respawn',
@@ -109,8 +163,8 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'use_rviz',
-            default_value='true',
-            description='Start RViz together with Nav2.',
+            default_value='false',
+            description='Start RViz together with Nav2. Keep false on SBCs unless actively debugging.',
         ),
         DeclareLaunchArgument(
             'rviz_config',
@@ -122,8 +176,10 @@ def generate_launch_description():
             default_value='info',
             description='Logging level for Nav2 nodes.',
         ),
+        nav2_container,
         localization_launch,
         navigation_launch,
+        nav_startup_helper,
         rviz_launch,
         laser_static_tf,
     ])

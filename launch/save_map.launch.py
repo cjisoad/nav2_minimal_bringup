@@ -11,9 +11,8 @@ def _default_maps_dir():
     pkg_share = Path(get_package_share_directory('mobile_robot_nav_bringup'))
     workspace_root = pkg_share.parents[3]
     repo_maps_dir = workspace_root / 'maps'
-    if repo_maps_dir.is_dir():
-        return str(repo_maps_dir)
-    return str(pkg_share / 'maps')
+    repo_maps_dir.mkdir(parents=True, exist_ok=True)
+    return str(repo_maps_dir)
 
 
 def generate_launch_description():
@@ -30,7 +29,14 @@ def generate_launch_description():
             '-f',
             [save_dir, '/', map_name],
         ],
-        parameters=[{'use_sim_time': use_sim_time}],
+        parameters=[{
+            'use_sim_time': use_sim_time,
+            # Keep the last /map sample so save_map can succeed even when
+            # no fresh map message arrives within a short window.
+            'map_subscribe_transient_local': True,
+            # Raspberry Pi + slam_toolbox can publish /map intermittently.
+            'save_map_timeout': 20.0,
+        }],
     )
 
     return LaunchDescription([

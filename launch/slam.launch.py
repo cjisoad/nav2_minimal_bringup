@@ -14,6 +14,7 @@ def generate_launch_description():
 
     use_sim_time = LaunchConfiguration('use_sim_time')
     slam_params_file = LaunchConfiguration('slam_params_file')
+    autostart = LaunchConfiguration('autostart')
     use_rviz = LaunchConfiguration('use_rviz')
     rviz_config = LaunchConfiguration('rviz_config')
 
@@ -36,6 +37,19 @@ def generate_launch_description():
         output='screen',
     )
 
+    lifecycle_manager = Node(
+        package='nav2_lifecycle_manager',
+        executable='lifecycle_manager',
+        name='lifecycle_manager_slam',
+        output='screen',
+        parameters=[
+            {'use_sim_time': use_sim_time},
+            {'autostart': autostart},
+            {'bond_timeout': 0.0},
+            {'node_names': ['slam_toolbox']},
+        ],
+    )
+
     # ENU: right turn around +Z is negative yaw.
     laser_static_tf = Node(
         package='tf2_ros',
@@ -43,9 +57,14 @@ def generate_launch_description():
         name='base_to_laser_tf',
         output='screen',
         arguments=[
-            '0.395', '0.0', '0.0',
-            '-0.78539816339', '0.0', '0.0',
-            'base_link', 'laser_link',
+            '--x', '0.295',
+            '--y', '0.0',
+            '--z', '0.0',
+            '--roll', '0.0',
+            '--pitch', '0.0',
+            '--yaw', '-0.78539816339',
+            '--frame-id', 'base_link',
+            '--child-frame-id', 'laser_link',
         ],
     )
 
@@ -61,6 +80,11 @@ def generate_launch_description():
             description='Full path to the SLAM parameters file.',
         ),
         DeclareLaunchArgument(
+            'autostart',
+            default_value='true',
+            description='Automatically configure and activate slam_toolbox.',
+        ),
+        DeclareLaunchArgument(
             'use_rviz',
             default_value='true',
             description='Start RViz together with slam_toolbox.',
@@ -71,6 +95,7 @@ def generate_launch_description():
             description='Full path to the RViz config file.',
         ),
         slam_node,
+        lifecycle_manager,
         rviz_node,
         laser_static_tf,
     ])
